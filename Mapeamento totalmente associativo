@@ -1,0 +1,101 @@
+# python-simulador.p
+Mapeamento Direto vs. Mapeamento Totalmente Associativo (com LRU). Utilizado como base os conceitos do Capítulo 4 - William Stallings: Arquitetura e Organização de Computadores
+
+"""
+Simulador de Memória Cache Completo em Python
+
+class DirectMappedCache:
+    def __init__(self, num_lines, block_size):
+        self.num_lines = num_lines
+        self.block_size = block_size
+        self.cache = [None] * num_lines  # Armazena as tags
+        self.hits = 0
+        self.misses = 0
+
+    def access(self, addr):
+        block_num = addr // self.block_size
+        line = block_num % self.num_lines
+        tag = block_num // self.num_lines
+
+        if self.cache[line] == tag:
+            self.hits += 1
+        else:
+            self.misses += 1
+            self.cache[line] = tag
+
+    def hit_rate(self):
+        total = self.hits + self.misses
+        return (self.hits / total) * 100 if total > 0 else 0.0
+
+
+class FullyAssociativeCache:
+    def __init__(self, num_lines, block_size):
+        self.num_lines = num_lines
+        self.block_size = block_size
+        self.cache = []  # Lista mantendo a ordem de uso (LRU)
+        self.hits = 0
+        self.misses = 0
+
+    def access(self, addr):
+        block_num = addr // self.block_size
+
+        if block_num in self.cache:
+            self.hits += 1
+            # Atualiza LRU: remove e coloca no final (mais recentemente usado)
+            self.cache.remove(block_num)
+            self.cache.append(block_num)
+        else:
+            self.misses += 1
+            if len(self.cache) >= self.num_lines:
+                self.cache.pop(0)  # Remove o menos recentemente usado (LRU)
+            self.cache.append(block_num)
+
+    def hit_rate(self):
+        total = self.hits + self.misses
+        return (self.hits / total) * 100 if total > 0 else 0.0
+
+
+def run_experiments():
+    # Configuração da Cache: 16 linhas, bloco de 16 bytes (Total: 256 Bytes)
+    num_lines = 16
+    block_size = 16
+
+    # Geração de Traces
+    # Trace 1: Thrashing induzido no Mapeamento Direto (blocos 0, 16, 32, 48...)
+    trace_thrashing = []
+    for _ in range(50):
+        for b in [0, 16, 32, 48]:  # Todos colidem na linha 0 no Mapeamento Direto!
+            trace_thrashing.append(b * block_size)
+
+    # Trace 2: Varredura de Array em Loop com Localidade
+    trace_loop = []
+    for _ in range(10):
+        for addr in range(0, 512, 4):  # Percorre 512 bytes em passos de 4
+            trace_loop.append(addr)
+
+    traces = {
+        "Conflito Severo (Thrashing)": trace_thrashing,
+        "Laço Sequencial Extenso": trace_loop
+    }
+
+    print("=== RESULTADOS DA SIMULAÇÃO DE CACHE (STALLINGS CAP. 4) ===")
+    print(f"{'CENÁRIO':<30} | {'DIRETO HIT %':<15} | {'ASSOCIATIVO HIT %':<15}")
+    print("-" * 66)
+
+    for name, trace in traces.items():
+        cd = DirectMappedCache(num_lines, block_size)
+        ca = FullyAssociativeCache(num_lines, block_size)
+
+        # Simulação dos acessos para ambas as arquiteturas
+        for addr in trace:
+            cd.access(addr)
+            ca.access(addr)
+
+        rate_d = cd.hit_rate()
+        rate_a = ca.hit_rate()
+
+        print(f"{name:<30} | {rate_d:<14.2f}% | {rate_a:<14.2f}%")
+
+
+if __name__ == "__main__":
+    run_experiments()
